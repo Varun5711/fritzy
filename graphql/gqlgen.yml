@@ -1,0 +1,8 @@
+schema: schema.graphql
+
+models:
+  Account:
+    model: github.com/Varun5711/fritzy/graphql.Account
+    fields:
+      orders:
+        resolver: true
