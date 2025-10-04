@@ -1,0 +1,98 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: account-pdb
+  namespace: fritzy
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: account
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: catalog-pdb
+  namespace: fritzy
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: catalog
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: order-pdb
+  namespace: fritzy
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: order
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: graphql-pdb
+  namespace: fritzy
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: graphql
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-account-pdb
+  namespace: fritzy
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgres-account
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-order-pdb
+  namespace: fritzy
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgres-order
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: elasticsearch-pdb
+  namespace: fritzy
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: elasticsearch
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: prometheus-pdb
+  namespace: monitoring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: prometheus
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: grafana-pdb
+  namespace: monitoring
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: grafana

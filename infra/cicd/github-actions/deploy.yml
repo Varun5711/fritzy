@@ -1,0 +1,77 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      version:
+        description: 'Version/Tag to deploy'
+        required: true
+        default: 'latest'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: Set up kubeconfig
+      run: |
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+
+    - name: Deploy to ${{ github.event.inputs.environment }}
+      run: |
+        cd infra/k8s
+
+        kubectl apply -f base/
+        kubectl apply -f security/
+        kubectl apply -f databases/
+        kubectl apply -f services/
+        kubectl apply -f ingress/
+        kubectl apply -f monitoring/
+        kubectl apply -f backup/
+
+        kubectl apply -f envs/${{ github.event.inputs.environment }}/kustomization-patch.yaml
+
+        kubectl set image deployment/account-service account=${{ secrets.REGISTRY }}/account-service:${{ github.event.inputs.version }} -n fritzy
+        kubectl set image deployment/catalog-service catalog=${{ secrets.REGISTRY }}/catalog-service:${{ github.event.inputs.version }} -n fritzy
+        kubectl set image deployment/order-service order=${{ secrets.REGISTRY }}/order-service:${{ github.event.inputs.version }} -n fritzy
+        kubectl set image deployment/graphql-gateway graphql=${{ secrets.REGISTRY }}/graphql-service:${{ github.event.inputs.version }} -n fritzy
+
+        kubectl rollout status deployment/account-service -n fritzy --timeout=5m
+        kubectl rollout status deployment/catalog-service -n fritzy --timeout=5m
+        kubectl rollout status deployment/order-service -n fritzy --timeout=5m
+        kubectl rollout status deployment/graphql-gateway -n fritzy --timeout=5m
+
+    - name: Run smoke tests
+      run: |
+        GRAPHQL_URL=$(kubectl get svc graphql-service -n fritzy -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        curl -f http://${GRAPHQL_URL}:8080/health || exit 1
+
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "Deployment to ${{ github.event.inputs.environment }} succeeded"
+
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        kubectl rollout undo deployment/account-service -n fritzy
+        kubectl rollout undo deployment/catalog-service -n fritzy
+        kubectl rollout undo deployment/order-service -n fritzy
+        kubectl rollout undo deployment/graphql-gateway -n fritzy

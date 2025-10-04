@@ -7,16 +7,18 @@ import (
 	"net"
 
 	"github.com/Varun5711/fritzy/catalog/pb"
+	kafkapkg "github.com/Varun5711/fritzy/kafka"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 type grpcServer struct {
-	service Service
+	service       Service
+	kafkaProducer *kafkapkg.Producer
 	pb.UnimplementedCatalogServiceServer
 }
 
-func ListenGRPC(s Service, port int) error {
+func ListenGRPC(s Service, kafkaProducer *kafkapkg.Producer, port int) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
@@ -24,6 +26,7 @@ func ListenGRPC(s Service, port int) error {
 	serv := grpc.NewServer()
 	pb.RegisterCatalogServiceServer(serv, &grpcServer{
 		service:                           s,
+		kafkaProducer:                     kafkaProducer,
 		UnimplementedCatalogServiceServer: pb.UnimplementedCatalogServiceServer{},
 	})
 	reflection.Register(serv)
@@ -36,6 +39,20 @@ func (s *grpcServer) PostProduct(ctx context.Context, r *pb.PostProductRequest) 
 		log.Println(err)
 		return nil, err
 	}
+
+	if s.kafkaProducer != nil {
+		event := map[string]interface{}{
+			"event_type":  "product.created",
+			"product_id":  p.ID,
+			"name":        p.Name,
+			"description": p.Description,
+			"price":       p.Price,
+		}
+		if err := s.kafkaProducer.Publish(ctx, "catalog.events", p.ID, event); err != nil {
+			log.Printf("Failed to publish product created event: %v", err)
+		}
+	}
+
 	return &pb.PostProductResponse{Product: &pb.Product{
 		Id:          p.ID,
 		Name:        p.Name,

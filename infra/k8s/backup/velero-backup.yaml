@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: velero
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: fritzy-daily-backup
+  namespace: velero
+spec:
+  schedule: "0 2 * * *"
+  template:
+    includedNamespaces:
+    - fritzy
+    - monitoring
+    storageLocation: default
+    volumeSnapshotLocations:
+    - default
+    ttl: 720h
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: fritzy-weekly-backup
+  namespace: velero
+spec:
+  schedule: "0 3 * * 0"
+  template:
+    includedNamespaces:
+    - fritzy
+    - monitoring
+    storageLocation: default
+    volumeSnapshotLocations:
+    - default
+    ttl: 2160h
+---
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: default
+  namespace: velero
+spec:
+  provider: aws
+  objectStorage:
+    bucket: fritzy-backups
+    prefix: velero
+  config:
+    region: us-east-1
+---
+apiVersion: velero.io/v1
+kind: VolumeSnapshotLocation
+metadata:
+  name: default
+  namespace: velero
+spec:
+  provider: aws
+  config:
+    region: us-east-1

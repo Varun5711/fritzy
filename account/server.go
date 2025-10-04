@@ -4,19 +4,22 @@ package account
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/Varun5711/fritzy/account/pb"
+	kafkapkg "github.com/Varun5711/fritzy/kafka"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 type grpcServer struct {
-	service Service
+	service       Service
+	kafkaProducer *kafkapkg.Producer
 	pb.UnimplementedAccountServiceServer
 }
 
-func ListenGRPC(s Service, port int) error {
+func ListenGRPC(s Service, kafkaProducer *kafkapkg.Producer, port int) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
@@ -24,6 +27,7 @@ func ListenGRPC(s Service, port int) error {
 	serv := grpc.NewServer()
 	pb.RegisterAccountServiceServer(serv, &grpcServer{
 		service:                           s,
+		kafkaProducer:                     kafkaProducer,
 		UnimplementedAccountServiceServer: pb.UnimplementedAccountServiceServer{},
 	})
 	reflection.Register(serv)
@@ -35,6 +39,18 @@ func (s *grpcServer) PostAccount(ctx context.Context, r *pb.PostAccountRequest) 
 	if err != nil {
 		return nil, err
 	}
+
+	if s.kafkaProducer != nil {
+		event := map[string]interface{}{
+			"event_type": "account.created",
+			"account_id": a.ID,
+			"name":       a.Name,
+		}
+		if err := s.kafkaProducer.Publish(ctx, "account.events", a.ID, event); err != nil {
+			log.Printf("Failed to publish account created event: %v", err)
+		}
+	}
+
 	return &pb.PostAccountResponse{Account: &pb.Account{
 		Id:   a.ID,
 		Name: a.Name,

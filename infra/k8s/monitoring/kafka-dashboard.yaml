@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-dashboard
+  namespace: monitoring
+data:
+  kafka.json: |
+    {
+      "dashboard": {
+        "title": "Kafka Cluster Metrics",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Kafka Brokers Online",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "count(up{job=\"kafka-exporter\"} == 1)",
+                "legendFormat": "Brokers"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Messages In Per Second",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(kafka_server_brokertopicmetrics_messagesin_total[5m])",
+                "legendFormat": "{{topic}}"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Bytes In Per Second",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(kafka_server_brokertopicmetrics_bytesin_total[5m])",
+                "legendFormat": "{{topic}}"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Bytes Out Per Second",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(kafka_server_brokertopicmetrics_bytesout_total[5m])",
+                "legendFormat": "{{topic}}"
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Consumer Lag",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "kafka_consumergroup_lag",
+                "legendFormat": "{{consumergroup}} - {{topic}}"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Under Replicated Partitions",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "kafka_server_replicamanager_underreplicatedpartitions",
+                "legendFormat": "{{instance}}"
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Offline Partitions",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(kafka_controller_kafkacontroller_offlinepartitionscount)"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Active Controllers",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(kafka_controller_kafkacontroller_activecontrollercount)"
+              }
+            ]
+          },
+          {
+            "id": 9,
+            "title": "ISR Shrink Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(kafka_server_replicamanager_isrshrinks_total[5m])",
+                "legendFormat": "{{instance}}"
+              }
+            ]
+          },
+          {
+            "id": 10,
+            "title": "ISR Expand Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(kafka_server_replicamanager_isrexpands_total[5m])",
+                "legendFormat": "{{instance}}"
+              }
+            ]
+          },
+          {
+            "id": 11,
+            "title": "Network Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(kafka_network_requestmetrics_requests_total[5m])",
+                "legendFormat": "{{request}} - {{instance}}"
+              }
+            ]
+          },
+          {
+            "id": 12,
+            "title": "Topic Count",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "kafka_topics"
+              }
+            ]
+          }
+        ]
+      }
+    }

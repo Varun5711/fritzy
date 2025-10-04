@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: fritzy
+data:
+  ENVIRONMENT: "development"
+  LOG_LEVEL: "debug"
+  ACCOUNT_SERVICE_URL: "http://account-service:8080"
+  CATALOG_SERVICE_URL: "http://catalog-service:8080"
+  ORDER_SERVICE_URL: "http://order-service:8080"
+  RATE_LIMIT: "1000"
+  CACHE_TTL: "300"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+  namespace: fritzy
+type: Opaque
+stringData:
+  POSTGRES_USER: "dev_user"
+  POSTGRES_PASSWORD: "dev_password_change_me"
+  POSTGRES_DB: "fritzy_dev"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graphql-gateway
+  namespace: fritzy
+spec:
+  replicas: 2
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: graphql-hpa
+  namespace: fritzy
+spec:
+  minReplicas: 2
+  maxReplicas: 5

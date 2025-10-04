@@ -1,0 +1,145 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-backup-script
+  namespace: fritzy
+data:
+  backup.sh: |
+    #!/bin/bash
+    set -e
+
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    BACKUP_DIR="/backup/kafka_${TIMESTAMP}"
+    KAFKA_BROKER="kafka-0.kafka-headless:9092"
+
+    mkdir -p $BACKUP_DIR
+
+    echo "Backing up Kafka topics metadata..."
+    kafka-topics --bootstrap-server $KAFKA_BROKER --describe --topics-with-overrides > $BACKUP_DIR/topics_config.txt
+
+    echo "Backing up consumer groups..."
+    kafka-consumer-groups --bootstrap-server $KAFKA_BROKER --list > $BACKUP_DIR/consumer_groups.txt
+
+    while read -r group; do
+      kafka-consumer-groups --bootstrap-server $KAFKA_BROKER --describe --group $group > $BACKUP_DIR/group_${group}.txt
+    done < $BACKUP_DIR/consumer_groups.txt
+
+    echo "Backing up topic list..."
+    kafka-topics --bootstrap-server $KAFKA_BROKER --list > $BACKUP_DIR/topics_list.txt
+
+    echo "Cleaning up old backups (7 days)..."
+    find /backup -name "kafka_*" -mtime +7 -exec rm -rf {} \;
+
+    echo "Kafka metadata backup completed: $BACKUP_DIR"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kafka-backup
+  namespace: fritzy
+spec:
+  schedule: "0 3 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: kafka-backup
+            image: confluentinc/cp-kafka:7.5.0
+            command: ["/bin/bash", "/scripts/backup.sh"]
+            volumeMounts:
+            - name: backup-script
+              mountPath: /scripts
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+          volumes:
+          - name: backup-script
+            configMap:
+              name: kafka-backup-script
+              defaultMode: 0755
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: kafka-backup-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kafka-backup-pvc
+  namespace: fritzy
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-restore-script
+  namespace: fritzy
+data:
+  restore.sh: |
+    #!/bin/bash
+    set -e
+
+    if [ -z "$1" ]; then
+      echo "Usage: restore.sh <backup_directory>"
+      exit 1
+    fi
+
+    BACKUP_DIR=$1
+    KAFKA_BROKER="kafka-0.kafka-headless:9092"
+
+    if [ ! -d "$BACKUP_DIR" ]; then
+      echo "Backup directory not found: $BACKUP_DIR"
+      exit 1
+    fi
+
+    echo "Restoring Kafka topics from: $BACKUP_DIR"
+
+    if [ -f "$BACKUP_DIR/topics_config.txt" ]; then
+      echo "Topic configurations found. Manual recreation required based on:"
+      cat $BACKUP_DIR/topics_config.txt
+    fi
+
+    echo "Restore completed. Consumer group offsets need manual adjustment."
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-restore
+  namespace: fritzy
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: kafka-restore
+        image: confluentinc/cp-kafka:7.5.0
+        command: ["/bin/bash"]
+        args: ["-c", "echo 'Restore job ready. Exec into pod to run: /scripts/restore.sh /backup/<backup_dir>'"]
+        volumeMounts:
+        - name: restore-script
+          mountPath: /scripts
+        - name: backup-storage
+          mountPath: /backup
+      volumes:
+      - name: restore-script
+        configMap:
+          name: kafka-restore-script
+          defaultMode: 0755
+      - name: backup-storage
+        persistentVolumeClaim:
+          claimName: kafka-backup-pvc

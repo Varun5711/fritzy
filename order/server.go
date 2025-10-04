@@ -10,6 +10,7 @@ import (
 
 	account "github.com/Varun5711/fritzy/account"
 	catalog "github.com/Varun5711/fritzy/catalog"
+	kafkapkg "github.com/Varun5711/fritzy/kafka"
 	"github.com/Varun5711/fritzy/order/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -20,20 +21,21 @@ type grpcServer struct {
 	service       Service
 	accountClient *account.Client
 	catalogClient *catalog.Client
+	kafkaProducer *kafkapkg.Producer
 }
 
-func ListenGRPC(s Service, accountURL, catalogURL string, port int) error {
+func ListenGRPC(s Service, kafkaProducer *kafkapkg.Producer, accountURL, catalogURL string, port int) error {
 	accountClient, err := account.NewClient(accountURL)
 	if err != nil {
 		return err
 	}
-	defer accountClient.Close() // Use defer for cleaner resource management
+	defer accountClient.Close()
 
 	catalogClient, err := catalog.NewClient(catalogURL)
 	if err != nil {
 		return err
 	}
-	defer catalogClient.Close() // Use defer for cleaner resource management
+	defer catalogClient.Close()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -41,11 +43,11 @@ func ListenGRPC(s Service, accountURL, catalogURL string, port int) error {
 	}
 
 	serv := grpc.NewServer()
-	// FIX: Use keyed fields to initialize the struct correctly.
 	pb.RegisterOrderServiceServer(serv, &grpcServer{
 		service:       s,
 		accountClient: accountClient,
 		catalogClient: catalogClient,
+		kafkaProducer: kafkaProducer,
 	})
 	reflection.Register(serv)
 
@@ -102,6 +104,19 @@ func (s *grpcServer) PostOrder(
 	if err != nil {
 		log.Println("Error posting order: ", err)
 		return nil, errors.New("could not post order")
+	}
+
+	if s.kafkaProducer != nil {
+		event := map[string]interface{}{
+			"event_type":  "order.created",
+			"order_id":    order.ID,
+			"account_id":  order.AccountID,
+			"total_price": order.TotalPrice,
+			"products":    products,
+		}
+		if err := s.kafkaProducer.Publish(ctx, "order.events", order.ID, event); err != nil {
+			log.Printf("Failed to publish order created event: %v", err)
+		}
 	}
 
 	// Make response order

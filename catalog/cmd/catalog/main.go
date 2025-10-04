@@ -5,12 +5,15 @@ import (
 	"time"
 
 	"github.com/Varun5711/fritzy/catalog"
+	"github.com/Varun5711/fritzy/kafka"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/tinrab/retry"
 )
 
 type Config struct {
-	DatabaseURL string `envconfig: "DATABASE_URL"`
+	DatabaseURL         string `envconfig:"DATABASE_URL"`
+	KafkaBrokers        string `envconfig:"KAFKA_BROKERS"`
+	KafkaConsumerGroup  string `envconfig:"KAFKA_CONSUMER_GROUP"`
 }
 
 func main() {
@@ -30,7 +33,14 @@ func main() {
 
 	defer r.Close()
 
+	var kafkaProducer *kafka.Producer
+	if cfg.KafkaBrokers != "" {
+		kafkaProducer = kafka.NewProducer(cfg.KafkaBrokers)
+		defer kafkaProducer.Close()
+		log.Println("Kafka producer initialized")
+	}
+
 	log.Println("Listening on port 8080 ...")
 	s := catalog.NewService(r)
-	log.Fatal(catalog.ListenGRPC(s, 8080))
+	log.Fatal(catalog.ListenGRPC(s, kafkaProducer, 8080))
 }

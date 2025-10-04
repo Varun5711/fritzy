@@ -1,0 +1,84 @@
+replicaCount:
+  graphql: 3
+  account: 3
+  catalog: 3
+  order: 3
+
+image:
+  registry: your-docker-registry.io
+  pullPolicy: Always
+  tag: "latest"
+
+databases:
+  postgres:
+    replicas: 2
+    storage: 10Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  elasticsearch:
+    replicas: 3
+    storage: 20Gi
+    javaOpts: "-Xms1g -Xmx1g"
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+monitoring:
+  prometheus:
+    enabled: true
+    retention: 30d
+    storage: 50Gi
+
+  grafana:
+    enabled: true
+    adminUser: admin
+    adminPassword: admin123
+    storage: 10Gi
+
+  loki:
+    enabled: true
+    storage: 30Gi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: api.fritzy.com
+  tls:
+    enabled: true
+    secretName: fritzy-tls
+
+resources:
+  services:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+secrets:
+  postgres:
+    username: varun
+    password: 123456
+    database: varun
+
+storageClass: standard
+
+namespace: fritzy

@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: account-service-sa
+  namespace: fritzy
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: catalog-service-sa
+  namespace: fritzy
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: order-service-sa
+  namespace: fritzy
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: graphql-service-sa
+  namespace: fritzy
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: service-role
+  namespace: fritzy
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: account-service-binding
+  namespace: fritzy
+subjects:
+- kind: ServiceAccount
+  name: account-service-sa
+  namespace: fritzy
+roleRef:
+  kind: Role
+  name: service-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: catalog-service-binding
+  namespace: fritzy
+subjects:
+- kind: ServiceAccount
+  name: catalog-service-sa
+  namespace: fritzy
+roleRef:
+  kind: Role
+  name: service-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: order-service-binding
+  namespace: fritzy
+subjects:
+- kind: ServiceAccount
+  name: order-service-sa
+  namespace: fritzy
+roleRef:
+  kind: Role
+  name: service-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: graphql-service-binding
+  namespace: fritzy
+subjects:
+- kind: ServiceAccount
+  name: graphql-service-sa
+  namespace: fritzy
+roleRef:
+  kind: Role
+  name: service-role
+  apiGroup: rbac.authorization.k8s.io

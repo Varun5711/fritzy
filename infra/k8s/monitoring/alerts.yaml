@@ -1,0 +1,308 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alerts
+  namespace: monitoring
+data:
+  alerts.yml: |
+    groups:
+    - name: microservices
+      interval: 30s
+      rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: "{{ $labels.service }} has error rate of {{ $value }} requests/sec"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on {{ $labels.service }}"
+          description: "95th percentile latency is {{ $value }}s on {{ $labels.service }}"
+
+      - alert: ServiceDown
+        expr: up{job=~"kubernetes-pods"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.pod }} is down"
+          description: "{{ $labels.pod }} in {{ $labels.namespace }} has been down for more than 2 minutes"
+
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{namespace="fritzy"}[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.pod }}"
+          description: "{{ $labels.pod }} is using {{ $value }}% CPU"
+
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes{namespace="fritzy"} / container_spec_memory_limit_bytes{namespace="fritzy"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.pod }}"
+          description: "{{ $labels.pod }} is using {{ $value }}% of memory limit"
+
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total{namespace="fritzy"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash looping"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes"
+
+      - alert: HPAMaxedOut
+        expr: kube_horizontalpodautoscaler_status_current_replicas{namespace="fritzy"} >= kube_horizontalpodautoscaler_spec_max_replicas{namespace="fritzy"}
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HPA {{ $labels.horizontalpodautoscaler }} is maxed out"
+          description: "HPA has been at maximum replicas for 15 minutes"
+
+    - name: postgres
+      interval: 30s
+      rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL instance {{ $labels.instance }} is down"
+
+      - alert: HighConnectionUsage
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High connection usage on PostgreSQL"
+          description: "Connection usage is {{ $value }}%"
+
+      - alert: ReplicationLag
+        expr: pg_replication_lag > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High replication lag"
+          description: "Replication lag is {{ $value }} seconds on {{ $labels.application_name }}"
+
+      - alert: LowCacheHitRatio
+        expr: pg_stat_database_blks_hit / (pg_stat_database_blks_hit + pg_stat_database_blks_read) < 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low cache hit ratio"
+          description: "Cache hit ratio is {{ $value }} on database {{ $labels.datname }}"
+
+      - alert: DeadLocks
+        expr: increase(pg_stat_database_deadlocks[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deadlocks detected"
+          description: "{{ $value }} deadlocks in the last 5 minutes on {{ $labels.datname }}"
+
+    - name: elasticsearch
+      interval: 30s
+      rules:
+      - alert: ElasticsearchClusterRed
+        expr: elasticsearch_cluster_health_status{color="red"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Elasticsearch cluster is RED"
+          description: "Elasticsearch cluster {{ $labels.cluster }} health is RED"
+
+      - alert: ElasticsearchClusterYellow
+        expr: elasticsearch_cluster_health_status{color="yellow"} == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elasticsearch cluster is YELLOW"
+          description: "Elasticsearch cluster {{ $labels.cluster }} health is YELLOW for 15 minutes"
+
+      - alert: HighJVMHeapUsage
+        expr: elasticsearch_jvm_memory_used_bytes{area="heap"} / elasticsearch_jvm_memory_max_bytes{area="heap"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap usage"
+          description: "JVM heap usage is {{ $value }}% on {{ $labels.node }}"
+
+      - alert: ElasticsearchNodeDown
+        expr: up{job="elasticsearch-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Elasticsearch node is down"
+          description: "Elasticsearch node {{ $labels.instance }} is down"
+
+    - name: kubernetes
+      interval: 30s
+      rules:
+      - alert: KubernetesPodNotReady
+        expr: kube_pod_status_phase{namespace="fritzy",phase!~"Running|Succeeded"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} not ready"
+          description: "Pod has been in {{ $labels.phase }} state for more than 5 minutes"
+
+      - alert: KubernetesPersistentVolumeFillingUp
+        expr: kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PV filling up"
+          description: "PV {{ $labels.persistentvolumeclaim }} has less than 15% free space"
+
+      - alert: KubernetesNodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.node }} not ready"
+          description: "Node has been in NotReady state for more than 5 minutes"
+
+    - name: slo
+      interval: 30s
+      rules:
+      - alert: SLOBudgetBurn
+        expr: |
+          (
+            1 - (
+              sum(rate(http_requests_total{status!~"5..",namespace="fritzy"}[30d]))
+              /
+              sum(rate(http_requests_total{namespace="fritzy"}[30d]))
+            )
+          ) > 0.001
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "SLO error budget is burning fast"
+          description: "Current error rate will consume monthly error budget"
+
+      - alert: AvailabilitySLOBreach
+        expr: |
+          (
+            sum(rate(http_requests_total{status!~"5..",namespace="fritzy"}[7d]))
+            /
+            sum(rate(http_requests_total{namespace="fritzy"}[7d]))
+          ) < 0.995
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Availability SLO breached"
+          description: "7-day availability is below 99.5% SLO target"
+
+    - name: kafka
+      interval: 30s
+      rules:
+      - alert: KafkaBrokerDown
+        expr: up{job="kafka-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka broker is down"
+          description: "Kafka broker {{ $labels.instance }} has been down for more than 2 minutes"
+
+      - alert: KafkaOfflinePartitions
+        expr: sum(kafka_controller_kafkacontroller_offlinepartitionscount) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka has offline partitions"
+          description: "{{ $value }} partitions are offline"
+
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_server_replicamanager_underreplicatedpartitions > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka has under-replicated partitions"
+          description: "{{ $value }} partitions are under-replicated on {{ $labels.instance }}"
+
+      - alert: KafkaConsumerLag
+        expr: kafka_consumergroup_lag > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High consumer lag"
+          description: "Consumer group {{ $labels.consumergroup }} has lag of {{ $value }} on topic {{ $labels.topic }}"
+
+      - alert: KafkaISRShrinking
+        expr: rate(kafka_server_replicamanager_isrshrinks_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ISR shrinking detected"
+          description: "In-Sync Replica set is shrinking on {{ $labels.instance }}"
+
+      - alert: KafkaNoActiveController
+        expr: sum(kafka_controller_kafkacontroller_activecontrollercount) == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No active Kafka controller"
+          description: "Kafka cluster has no active controller"
+
+      - alert: KafkaMultipleControllers
+        expr: sum(kafka_controller_kafkacontroller_activecontrollercount) > 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Multiple Kafka controllers detected"
+          description: "{{ $value }} active controllers detected (split brain)"
+
+      - alert: ZookeeperDown
+        expr: up{job="zookeeper"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Zookeeper is down"
+          description: "Zookeeper instance {{ $labels.instance }} is down"
+
+      - alert: KafkaDiskUsageHigh
+        expr: (kafka_log_log_size / 1024 / 1024 / 1024) > 40
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka disk usage high"
+          description: "Kafka log size is {{ $value }}GB on {{ $labels.instance }}"
+
