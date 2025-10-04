@@ -1,13 +1,15 @@
-FROM golang:1.13-alpine3.11 AS build
+FROM golang:1.24-alpine AS build
 
 RUN apk --no-cache add gcc g++ make ca-certificates
-WORKDIR /go/src/github.com/Varun5711/fritzy
+
+WORKDIR /app
 
 COPY go.mod go.sum ./
-COPY vendor vendor
-COPY account account
+RUN go mod download
 
-RUN GO111MODULE=on go build -mod vendor -o /go/bin/app ./account/cmd/account
+COPY . .
+
+RUN go build -o /go/bin/app ./account/cmd/account
 
 FROM alpine:3.11
 
