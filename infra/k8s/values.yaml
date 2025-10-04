@@ -5,7 +5,7 @@ replicaCount:
   order: 3
 
 image:
-  registry: your-docker-registry.io
+  registry: varun5711-docker-registry.io
   pullPolicy: Always
   tag: "latest"
 

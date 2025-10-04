@@ -11,7 +11,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_ORG/fritzy_backend.git
+    repoURL: https://github.com/Varun5711/fritzy_backend.git
     targetRevision: develop
     path: infra/k8s
     directory:
@@ -47,7 +47,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_ORG/fritzy_backend.git
+    repoURL: https://github.com/Varun5711/fritzy_backend.git
     targetRevision: staging
     path: infra/k8s
     directory:
@@ -70,7 +70,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_ORG/fritzy_backend.git
+    repoURL: https://github.com/Varun5711/fritzy_backend.git
     targetRevision: main
     path: infra/k8s
     directory:
@@ -90,7 +90,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_ORG/fritzy_backend.git
+    repoURL: https://github.com/Varun5711/fritzy_backend.git
     targetRevision: main
     path: infra/k8s/monitoring
     directory:

@@ -7,7 +7,7 @@ data:
   alertmanager.yml: |
     global:
       resolve_timeout: 5m
-      slack_api_url: 'YOUR_SLACK_WEBHOOK_URL'
+      slack_api_url: 'nahi h kuch bhi filhaal'
 
     route:
       group_by: ['alertname', 'cluster', 'service']
@@ -37,7 +37,7 @@ data:
         title: 'CRITICAL: {{ .GroupLabels.alertname }}'
         text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
       pagerduty_configs:
-      - service_key: 'YOUR_PAGERDUTY_KEY'
+      - service_key: 'kyubtau?'
 
     - name: 'warning'
       slack_configs:
