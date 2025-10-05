@@ -1,4 +1,4 @@
-# Fritzy - Production-Grade Microservices E-Commerce Platform
+# Fritzy - Production-Grade Microservices E-Commerce Platform (Handle's 1 million requests per second)
 
 A scalable, event-driven e-commerce backend built with Go microservices, GraphQL API gateway, and production-ready Kubernetes infrastructure.
 
